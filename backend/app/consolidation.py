@@ -2,80 +2,50 @@ import os
 from openai import OpenAI
 from app.database import SessionLocal
 from app.models import Job, Track, Report
+from app.document_generator import generate_pdf, generate_docx
 import logging
 
 logger = logging.getLogger(__name__)
 
-def get_openai_client():
-    return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
 def consolidate_and_swot(job_id: int):
-    """
-    Консолидирует результаты 3 треков и генерирует SWOT анализ
-    """
     db = SessionLocal()
-    
     try:
-        # Получаем все треки
-        tracks = db.query(Track).filter(
-            Track.job_id == job_id,
-            Track.status == "completed"
-        ).all()
-        
+        tracks = db.query(Track).filter(Track.job_id == job_id, Track.status == "completed").all()
         if len(tracks) < 3:
-            logger.warning(f"Job {job_id}: only {len(tracks)}/3 tracks completed")
             return None
         
-        # Собираем данные из треков
-        track_data = {}
-        for track in tracks:
-            track_data[track.track_name] = track.raw_output
+        track_data = {t.track_name: t.raw_output for t in tracks}
         
-        # Создаем промпт для консолидации + SWOT
-        consolidation_prompt = f"""Ты эксперт-аналитик. У тебя есть результаты анализа бизнес-идеи по 3 направлениям:
+        prompt = f"""Анализ бизнес-идеи по 3 направлениям:
 
-ТРЕК 1 - АНАЛИЗ АУДИТОРИИ:
-{track_data.get('track1_audience', {})}
+АУДИТОРИЯ: {track_data.get('track1_audience', {})}
+КОНКУРЕНТЫ: {track_data.get('track2_global', {})}
+РЫНОК: {track_data.get('track3_local', {})}
 
-ТРЕК 2 - ГЛОБАЛЬНЫЕ КОНКУРЕНТЫ:
-{track_data.get('track2_global', {})}
+Создай:
+1. Executive Summary (2-3 абзаца)
+2. SWOT анализ
+3. 5 рекомендаций
 
-ТРЕК 3 - ЛОКАЛЬНЫЙ РЫНОК:
-{track_data.get('track3_local', {})}
-
-Твоя задача:
-1. Создать Executive Summary (2-3 абзаца) - главные выводы
-2. Провести SWOT анализ на основе всех 3 треков
-3. Дать 5 конкретных рекомендаций
-
-ВАЖНО: Ответь ТОЛЬКО в формате JSON:
+JSON формат:
 {{
-  "executive_summary": "Краткое резюме всего анализа (2-3 абзаца)",
+  "executive_summary": "текст",
   "swot": {{
-    "strengths": ["Сильная сторона 1", "Сильная сторона 2", "Сильная сторона 3"],
-    "weaknesses": ["Слабость 1", "Слабость 2", "Слабость 3"],
-    "opportunities": ["Возможность 1", "Возможность 2", "Возможность 3"],
-    "threats": ["Угроза 1", "Угроза 2", "Угроза 3"]
+    "strengths": ["s1", "s2", "s3"],
+    "weaknesses": ["w1", "w2", "w3"],
+    "opportunities": ["o1", "o2", "o3"],
+    "threats": ["t1", "t2", "t3"]
   }},
-  "recommendations": [
-    "Рекомендация 1",
-    "Рекомендация 2",
-    "Рекомендация 3",
-    "Рекомендация 4",
-    "Рекомендация 5"
-  ],
+  "recommendations": ["r1", "r2", "r3", "r4", "r5"],
   "overall_score": 7
 }}"""
         
-        # Вызываем LLM
-        client = get_openai_client()
-        model = os.getenv("LLM_MODEL", "gpt-4.1-nano")
-        
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         response = client.chat.completions.create(
-            model=model,
+            model=os.getenv("LLM_MODEL", "gpt-4.1-nano"),
             messages=[
-                {"role": "system", "content": "Ты эксперт-аналитик бизнес-идей. Отвечай только в формате JSON."},
-                {"role": "user", "content": consolidation_prompt}
+                {"role": "system", "content": "Эксперт-аналитик. Отвечай только JSON."},
+                {"role": "user", "content": prompt}
             ],
             response_format={"type": "json_object"},
             temperature=0.7,
@@ -83,34 +53,38 @@ def consolidate_and_swot(job_id: int):
         )
         
         import json
-        consolidation_result = json.loads(response.choices[0].message.content)
+        consolidation = json.loads(response.choices[0].message.content)
         
-        # Формируем итоговый отчет
         final_report = {
             "tracks": {
                 "audience": track_data.get('track1_audience'),
                 "global_competitors": track_data.get('track2_global'),
                 "local_market": track_data.get('track3_local')
             },
-            "consolidation": consolidation_result
+            "consolidation": consolidation
         }
         
-        # Сохраняем в БД
+        # Генерируем файлы
+        os.makedirs("/app/reports", exist_ok=True)
+        pdf_path = f"/app/reports/report_{job_id}.pdf"
+        docx_path = f"/app/reports/report_{job_id}.docx"
+        
+        generate_pdf(final_report, pdf_path)
+        generate_docx(final_report, docx_path)
+        
         report = Report(
             job_id=job_id,
-            report_json=final_report
+            report_json=final_report,
+            pdf_url=pdf_path,
+            docx_url=docx_path
         )
         db.add(report)
         db.commit()
-        db.refresh(report)
         
-        logger.info(f"Consolidation completed for job_id={job_id}, report_id={report.id}")
-        
+        logger.info(f"Report {job_id} created with PDF/DOCX")
         return final_report
-        
     except Exception as e:
-        logger.error(f"Error in consolidate_and_swot: {str(e)}")
+        logger.error(f"Consolidation error: {e}")
         return None
-    
     finally:
         db.close()

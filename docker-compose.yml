@@ -45,6 +45,7 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
+      - reports:/app/reports
     restart: always
 
   worker:
@@ -60,10 +61,12 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
+      - reports:/app/reports
     restart: always
 
 volumes:
   pgdata:
+  reports:
 
 networks:
   default:
