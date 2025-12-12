@@ -84,3 +84,11 @@ class LLMRequest(Base):
     status = Column(String(50))
     error = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+class Setting(Base):
+    __tablename__ = "settings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(100), unique=True, nullable=False)
+    value = Column(Text)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())

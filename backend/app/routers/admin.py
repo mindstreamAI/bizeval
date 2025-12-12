@@ -134,3 +134,74 @@ async def get_llm_logs(limit: int = 50, db: Session = Depends(get_db)):
         "status": l.status,
         "created_at": l.created_at.isoformat()
     } for l in logs]
+
+from app.models import Setting
+
+@router.get("/settings")
+async def get_settings(db: Session = Depends(get_db)):
+    settings = db.query(Setting).all()
+    return {s.key: s.value for s in settings}
+
+class SettingUpdate(BaseModel):
+    settings: dict
+
+@router.post("/settings/update")
+async def update_settings(data: SettingUpdate, db: Session = Depends(get_db)):
+    for key, value in data.settings.items():
+        setting = db.query(Setting).filter(Setting.key == key).first()
+        if setting:
+            setting.value = value
+        else:
+            db.add(Setting(key=key, value=value))
+    
+    db.commit()
+    
+    # Обновляем .env файл
+    env_path = '/app/.env'
+    with open(env_path, 'r') as f:
+        lines = f.readlines()
+    
+    env_map = {
+        's3_endpoint': 'S3_ENDPOINT',
+        's3_access_key': 'S3_ACCESS_KEY',
+        's3_secret_key': 'S3_SECRET_KEY',
+        's3_bucket': 'S3_BUCKET',
+        'openai_api_key': 'OPENAI_API_KEY',
+        'llm_model': 'LLM_MODEL'
+    }
+    
+    new_lines = []
+    for line in lines:
+        updated = False
+        for key, env_var in env_map.items():
+            if line.startswith(f'{env_var}=') and key in data.settings:
+                new_lines.append(f'{env_var}={data.settings[key]}\n')
+                updated = True
+                break
+        if not updated:
+            new_lines.append(line)
+    
+    with open(env_path, 'w') as f:
+        f.writelines(new_lines)
+    
+    return {"success": True, "message": "Настройки сохранены. Перезапустите worker для применения."}
+
+import subprocess
+
+@router.post("/restart-worker")
+async def restart_worker():
+    try:
+        # Перезапускаем через docker-compose
+        result = subprocess.run(
+            ['docker-compose', 'restart', 'worker'],
+            cwd='/root/bizeval',
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode == 0:
+            return {"success": True, "message": "Worker перезапущен"}
+        else:
+            return {"success": False, "message": result.stderr}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
