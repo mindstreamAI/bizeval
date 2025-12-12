@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.database import get_db
-from app.models import AdminUser, Job, LLMRequest, Session as DBSession, Prompt
+from app.models import AdminUser, Job, LLMRequest, Session as DBSession, Prompt, Setting
 from pydantic import BaseModel
 import hashlib
 from datetime import datetime, timedelta
+import os
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -24,9 +25,7 @@ async def login(data: LoginRequest, db: Session = Depends(get_db)):
     if not admin:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    # Простой токен (для MVP)
     token = hashlib.sha256(f"{admin.id}{datetime.now()}".encode()).hexdigest()
-    
     return {"token": token, "email": admin.email}
 
 @router.get("/stats")
@@ -37,11 +36,9 @@ async def get_stats(db: Session = Depends(get_db)):
     ).scalar()
     
     success_jobs = db.query(func.count(Job.id)).filter(Job.status == 'done').scalar()
-    
     total_tokens = db.query(func.sum(LLMRequest.tokens_used)).scalar() or 0
-    cost = (total_tokens / 1_000_000) * 0.25  # Примерная стоимость
+    cost = (total_tokens / 1_000_000) * 0.25
     
-    # График последние 7 дней
     days = []
     for i in range(6, -1, -1):
         date = datetime.now().date() - timedelta(days=i)
@@ -64,7 +61,6 @@ async def get_jobs(skip: int = 0, limit: int = 20, db: Session = Depends(get_db)
     
     result = []
     for job in jobs:
-        session = db.query(DBSession).filter(DBSession.id == job.session_id).first()
         from app.models import Form
         form = db.query(Form).filter(Form.session_id == job.session_id).first()
         
@@ -104,10 +100,8 @@ async def update_prompt(prompt_id: int, data: PromptUpdate, db: Session = Depend
     if not old:
         raise HTTPException(404, "Prompt not found")
     
-    # Деактивируем старую версию
     old.is_active = False
     
-    # Создаем новую
     new = Prompt(
         track_name=old.track_name,
         prompt_template=data.prompt_template,
@@ -135,8 +129,6 @@ async def get_llm_logs(limit: int = 50, db: Session = Depends(get_db)):
         "created_at": l.created_at.isoformat()
     } for l in logs]
 
-from app.models import Setting
-
 @router.get("/settings")
 async def get_settings(db: Session = Depends(get_db)):
     settings = db.query(Setting).all()
@@ -156,7 +148,6 @@ async def update_settings(data: SettingUpdate, db: Session = Depends(get_db)):
     
     db.commit()
     
-    # Обновляем .env файл
     env_path = '/app/.env'
     with open(env_path, 'r') as f:
         lines = f.readlines()
@@ -184,24 +175,16 @@ async def update_settings(data: SettingUpdate, db: Session = Depends(get_db)):
     with open(env_path, 'w') as f:
         f.writelines(new_lines)
     
-    return {"success": True, "message": "Настройки сохранены. Перезапустите worker для применения."}
-
-import subprocess
+    return {"success": True, "message": "Настройки сохранены"}
 
 @router.post("/restart-worker")
 async def restart_worker():
     try:
-        # Перезапускаем через docker-compose
-        result = subprocess.run(
-            ['docker-compose', 'restart', 'worker'],
-            cwd='/root/bizeval',
-            capture_output=True,
-            text=True
-        )
-        
-        if result.returncode == 0:
-            return {"success": True, "message": "Worker перезапущен"}
-        else:
-            return {"success": False, "message": result.stderr}
+        # Используем Docker socket
+        import docker
+        client = docker.from_env()
+        container = client.containers.get('bizeval_worker')
+        container.restart()
+        return {"success": True, "message": "Worker перезапущен успешно"}
     except Exception as e:
-        return {"success": False, "message": str(e)}
+        return {"success": False, "message": f"Ошибка: {str(e)}"}

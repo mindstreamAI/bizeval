@@ -19,3 +19,4 @@ openai==1.57.4
 celery[redis]==5.4.0
 reportlab==4.0.9
 python-docx==1.1.0
+docker==7.1.0
