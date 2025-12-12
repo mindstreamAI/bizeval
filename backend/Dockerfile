@@ -22,3 +22,6 @@ EXPOSE 8000
 
 # Команда запуска
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+# DejaVu шрифты для PDF
+RUN apt-get update && apt-get install -y fonts-dejavu-core && rm -rf /var/lib/apt/lists/*

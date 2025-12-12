@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Report, Job
@@ -36,12 +36,19 @@ async def download_file(job_id: int, file_type: str, db: Session = Depends(get_d
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     
+    # Если URL начинается с https - редирект на S3
     if file_type == "pdf":
-        path = report.pdf_url
+        url = report.pdf_url
+        if url.startswith('https://'):
+            return RedirectResponse(url=url)
+        path = url
         media = "application/pdf"
         filename = f"bizeval_report_{job_id}.pdf"
     elif file_type == "docx":
-        path = report.docx_url
+        url = report.docx_url
+        if url.startswith('https://'):
+            return RedirectResponse(url=url)
+        path = url
         media = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         filename = f"bizeval_report_{job_id}.docx"
     else:

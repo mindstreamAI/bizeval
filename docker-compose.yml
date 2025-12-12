@@ -64,6 +64,16 @@ services:
       - reports:/app/reports
     restart: always
 
+  frontend:
+    build: ./frontend
+    container_name: bizeval_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    restart: always
+
 volumes:
   pgdata:
   reports:

@@ -1,42 +1,66 @@
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from docx import Document
-from docx.shared import Pt, RGBColor
 import os
-import json
 
 def generate_pdf(report_data: dict, output_path: str):
-    c = canvas.Canvas(output_path, pagesize=A4)
-    width, height = A4
-    y = height - inch
+    # Регистрируем DejaVu шрифт
+    try:
+        pdfmetrics.registerFont(TTFont('DejaVu', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
+        pdfmetrics.registerFont(TTFont('DejaVu-Bold', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'))
+    except:
+        pass
     
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(inch, y, "BizEval - Анализ Бизнес-Идеи")
-    y -= 0.5*inch
+    doc = SimpleDocTemplate(output_path, pagesize=A4)
+    story = []
+    styles = getSampleStyleSheet()
     
-    c.setFont("Helvetica", 10)
+    # Заголовок
+    title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'], fontName='DejaVu-Bold', fontSize=20)
+    story.append(Paragraph('BizEval - Анализ Бизнес-Идеи', title_style))
+    story.append(Spacer(1, 20))
+    
     cons = report_data['consolidation']
     
     # Summary
-    c.drawString(inch, y, "Executive Summary:")
-    y -= 0.3*inch
-    for line in cons['executive_summary'][:200].split('\n'):
-        c.drawString(inch, y, line[:80])
-        y -= 0.2*inch
+    h2_style = ParagraphStyle('CustomH2', parent=styles['Heading2'], fontName='DejaVu-Bold', fontSize=14)
+    story.append(Paragraph('Executive Summary', h2_style))
+    story.append(Spacer(1, 10))
+    
+    text_style = ParagraphStyle('CustomText', parent=styles['Normal'], fontName='DejaVu', fontSize=10)
+    story.append(Paragraph(cons['executive_summary'], text_style))
+    story.append(Spacer(1, 20))
     
     # SWOT
-    y -= 0.3*inch
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(inch, y, "SWOT:")
-    y -= 0.3*inch
+    story.append(Paragraph('SWOT Анализ', h2_style))
+    story.append(Spacer(1, 10))
     
-    c.setFont("Helvetica", 10)
-    for s in cons['swot']['strengths'][:2]:
-        c.drawString(inch, y, f"+ {s[:70]}")
-        y -= 0.2*inch
+    for section, items in [
+        ('Сильные стороны', cons['swot']['strengths']),
+        ('Слабости', cons['swot']['weaknesses']),
+        ('Возможности', cons['swot']['opportunities']),
+        ('Угрозы', cons['swot']['threats'])
+    ]:
+        story.append(Paragraph(f'<b>{section}:</b>', text_style))
+        for item in items:
+            story.append(Paragraph(f'• {item}', text_style))
+        story.append(Spacer(1, 10))
     
-    c.save()
+    # Рекомендации
+    story.append(Paragraph('Рекомендации', h2_style))
+    story.append(Spacer(1, 10))
+    for i, r in enumerate(cons['recommendations'], 1):
+        story.append(Paragraph(f'{i}. {r}', text_style))
+    
+    story.append(Spacer(1, 20))
+    story.append(Paragraph(f'<b>Общая оценка: {cons["overall_score"]}/10</b>', text_style))
+    
+    doc.build(story)
     return output_path
 
 def generate_docx(report_data: dict, output_path: str):
@@ -50,25 +74,27 @@ def generate_docx(report_data: dict, output_path: str):
     
     doc.add_heading('SWOT Анализ', 1)
     
-    doc.add_heading('Strengths', 2)
+    doc.add_heading('Сильные стороны', 2)
     for s in cons['swot']['strengths']:
         doc.add_paragraph(s, style='List Bullet')
     
-    doc.add_heading('Weaknesses', 2)
+    doc.add_heading('Слабости', 2)
     for w in cons['swot']['weaknesses']:
         doc.add_paragraph(w, style='List Bullet')
     
-    doc.add_heading('Opportunities', 2)
+    doc.add_heading('Возможности', 2)
     for o in cons['swot']['opportunities']:
         doc.add_paragraph(o, style='List Bullet')
     
-    doc.add_heading('Threats', 2)
+    doc.add_heading('Угрозы', 2)
     for t in cons['swot']['threats']:
         doc.add_paragraph(t, style='List Bullet')
     
     doc.add_heading('Рекомендации', 1)
     for i, r in enumerate(cons['recommendations'], 1):
         doc.add_paragraph(f"{i}. {r}")
+    
+    doc.add_heading(f'Общая оценка: {cons["overall_score"]}/10', 1)
     
     doc.save(output_path)
     return output_path
