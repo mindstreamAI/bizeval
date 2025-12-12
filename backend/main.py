@@ -3,18 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 
-from app.routers import sessions, forms, analysis
+from app.routers import sessions, forms, analysis, reports
 
-# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     logger.info("Starting BizEval API...")
     yield
-    # Shutdown
     logger.info("Shutting down BizEval API...")
 
 app = FastAPI(
@@ -24,7 +21,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS настройки
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -37,6 +33,7 @@ app.add_middleware(
 app.include_router(sessions.router)
 app.include_router(forms.router)
 app.include_router(analysis.router)
+app.include_router(reports.router)
 
 @app.get("/")
 async def root():
@@ -48,6 +45,7 @@ async def root():
             "sessions": "/api/session",
             "forms": "/api/form",
             "analysis": "/api/analysis",
+            "reports": "/api/report",
             "docs": "/docs"
         }
     }
@@ -56,7 +54,6 @@ async def root():
 async def health_check():
     return {"status": "ok"}
 
-# WebSocket для реального времени
 @app.websocket("/ws/{ws_token}")
 async def websocket_endpoint(websocket: WebSocket, ws_token: str):
     await websocket.accept()
@@ -70,8 +67,6 @@ async def websocket_endpoint(websocket: WebSocket, ws_token: str):
         
         while True:
             data = await websocket.receive_text()
-            logger.info(f"Received: {data}")
-            
             await websocket.send_json({
                 "type": "echo",
                 "message": f"Получено: {data}"
