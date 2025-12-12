@@ -74,6 +74,16 @@ services:
       - /app/node_modules
     restart: always
 
+  admin:
+    build: ./admin
+    container_name: bizeval_admin
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./admin:/app
+      - /app/node_modules
+    restart: always
+
 volumes:
   pgdata:
   reports:

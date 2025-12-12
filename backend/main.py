@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 
-from app.routers import sessions, forms, analysis, reports
+from app.routers import sessions, forms, analysis, reports, admin
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,16 +29,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Подключаем роутеры
 app.include_router(sessions.router)
 app.include_router(forms.router)
 app.include_router(analysis.router)
 app.include_router(reports.router)
+app.include_router(admin.router)
 
 @app.get("/")
 async def root():
     return {
-        "message": "BizEval API is running",
+        "message": "BizEval API",
         "version": "1.0.0",
         "status": "healthy",
         "endpoints": {
@@ -46,6 +46,7 @@ async def root():
             "forms": "/api/form",
             "analysis": "/api/analysis",
             "reports": "/api/report",
+            "admin": "/api/admin",
             "docs": "/docs"
         }
     }
