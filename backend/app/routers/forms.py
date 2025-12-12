@@ -90,7 +90,7 @@ async def submit_form(
     form_data: FormData,
     db: Session = Depends(get_db)
 ):
-    """Отправка формы и запуск анализа"""
+    """Отправка формы и запуск анализа через Celery"""
     # Проверяем существование сессии
     session = db.query(DBSession).filter(DBSession.id == session_id).first()
     if not session:
@@ -114,10 +114,13 @@ async def submit_form(
     db.commit()
     db.refresh(new_job)
     
-    # TODO: Запустить Celery задачу для анализа
+    # Запускаем Celery задачу
+    from app.tasks import run_full_analysis
+    task = run_full_analysis.delay(new_job.id)
     
     return {
         "job_id": new_job.id,
+        "task_id": task.id,
         "status": "pending",
-        "message": "Анализ запущен"
+        "message": "Анализ запущен в фоне"
     }

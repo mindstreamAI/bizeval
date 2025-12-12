@@ -47,6 +47,21 @@ services:
       - ./backend:/app
     restart: always
 
+  worker:
+    build: ./backend
+    container_name: bizeval_worker
+    command: celery -A celery_app worker --loglevel=info --concurrency=3
+    env_file:
+      - ./backend/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    restart: always
+
 volumes:
   pgdata:
 
