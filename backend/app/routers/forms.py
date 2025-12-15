@@ -28,61 +28,65 @@ async def get_form_structure():
             "name": "idea_description",
             "label": "Описание идеи",
             "type": "textarea",
-            "required": True,
-            "placeholder": "Опишите вашу бизнес-идею..."
+            "placeholder": "Опишите вашу бизнес-идею подробно...",
+            "required": True
         },
         {
             "name": "target_audience",
             "label": "Целевая аудитория",
             "type": "textarea",
-            "required": True,
-            "placeholder": "Кто ваши потенциальные клиенты?"
+            "placeholder": "Кто ваши клиенты?",
+            "required": True
         },
         {
             "name": "industry",
             "label": "Индустрия",
             "type": "select",
-            "required": True,
-            "options": ["Tech", "E-commerce", "Healthcare", "Education", "Finance", "Other"]
+            "options": ["Tech", "E-commerce", "Healthcare", "Education", "Finance", "Other"],
+            "required": True
         },
         {
             "name": "geography",
             "label": "География",
             "type": "select",
-            "required": True,
-            "options": ["Russia", "USA", "Europe", "Asia", "Global"]
+            "options": ["Russia", "USA", "Europe", "Asia", "Global"],
+            "required": True
         },
         {
             "name": "value_proposition",
             "label": "Ценностное предложение",
             "type": "textarea",
-            "required": True,
-            "placeholder": "Что уникального вы предлагаете?"
+            "placeholder": "Что уникального в вашем решении?",
+            "required": True
         },
         {
             "name": "monetization_model",
             "label": "Модель монетизации",
-            "type": "textarea",
-            "required": True,
-            "placeholder": "Как планируете зарабатывать?"
+            "type": "text",
+            "placeholder": "Как планируете зарабатывать?",
+            "required": True
         },
         {
             "name": "project_stage",
             "label": "Стадия проекта",
-            "type": "radio",
-            "required": True,
-            "options": ["idea", "prototype", "first_clients", "scale"]
+            "type": "select",
+            "options": [
+                {"value": "idea", "label": "Идея"},
+                {"value": "prototype", "label": "Прототип"},
+                {"value": "first_clients", "label": "Первые клиенты"},
+                {"value": "scale", "label": "Масштабирование"}
+            ],
+            "required": True
         },
         {
             "name": "additional_comments",
             "label": "Дополнительные комментарии",
             "type": "textarea",
-            "required": False,
-            "placeholder": "Любая дополнительная информация..."
+            "placeholder": "Что еще важно учесть?",
+            "required": False
         }
     ]
-    
-    return FormStructure(fields=fields)
+    return {"fields": fields}
 
 @router.post("/submit/{session_id}")
 async def submit_form(
@@ -114,9 +118,9 @@ async def submit_form(
     db.commit()
     db.refresh(new_job)
     
-    # Запускаем Celery задачу
+    # Запускаем Celery задачу с правильными параметрами
     from app.tasks import run_full_analysis
-    task = run_full_analysis.delay(new_job.id)
+    task = run_full_analysis.delay(new_job.id, session_id, form_data.dict())
     
     return {
         "job_id": new_job.id,

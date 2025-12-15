@@ -1,80 +1,140 @@
-from celery import group, chord
+from celery import chord
 from celery_app import celery_app
 from app.database import SessionLocal
-from app.models import Job, Track, Prompt, Form
+from app.models import Job, Track, LLMRequest, Prompt
 from app.llm_service import call_llm
 from app.consolidation import consolidate_and_swot
-from app.websocket import publish_status
 import logging
+import redis
+import json
 
 logger = logging.getLogger(__name__)
+redis_client = redis.Redis(host='redis', port=6379, decode_responses=True)
 
-@celery_app.task(name="app.tasks.analyze_track")
-def analyze_track(job_id: int, track_name: str):
+def publish_status(session_id: int, status: str, message: str, data: dict = None):
+    """Публикуем статус в Redis для WebSocket"""
+    payload = {
+        "type": status,
+        "message": message,
+        "data": data or {}
+    }
+    redis_client.publish(f"session:{session_id}", json.dumps(payload))
+    logger.info(f"Published to session:{session_id}: {message}")
+
+@celery_app.task(bind=True)
+def analyze_track(self, job_id: int, session_id: int, track_name: str, form_data: dict):
     db = SessionLocal()
     try:
-        job = db.query(Job).filter(Job.id == job_id).first()
-        if not job:
-            return {"status": "error"}
+        publish_status(session_id, "track_started", f"🔄 Анализирую {track_name}...")
         
-        publish_status(job.session_id, "running", f"Анализирую {track_name}...")
+        # Получаем активный промпт
+        prompt_obj = db.query(Prompt).filter(
+            Prompt.track_name == track_name,
+            Prompt.is_active == True
+        ).first()
         
-        form = db.query(Form).filter(Form.session_id == job.session_id).first()
-        prompt_record = db.query(Prompt).filter(Prompt.track_name == track_name, Prompt.is_active == True).first()
+        if not prompt_obj:
+            raise Exception(f"No active prompt for {track_name}")
         
-        track = Track(job_id=job_id, track_name=track_name, status="running")
+        # Создаем запись трека
+        track = Track(
+            job_id=job_id,
+            track_name=track_name,
+            status="running"
+        )
         db.add(track)
         db.commit()
         db.refresh(track)
         
-        llm_result = call_llm(prompt_record.prompt_template, form.payload, track.id, db)
+        # Вызываем LLM с правильными параметрами
+        result = call_llm(
+            prompt=prompt_obj.prompt_template,
+            form_data=form_data,
+            track_id=track.id,
+            db=db
+        )
         
-        if llm_result["status"] == "success":
+        if result:
             track.status = "completed"
-            track.raw_output = llm_result["result"]
-            publish_status(job.session_id, "track_completed", f"✅ {track_name}")
-            result = {"status": "success", "track_name": track_name}
+            track.raw_output = result
+            db.commit()
+            
+            publish_status(session_id, "track_completed", f"✅ {track_name} завершен", {"track": track_name})
+            return {"success": True, "track_name": track_name}
         else:
             track.status = "failed"
-            result = {"status": "error"}
-        
-        db.commit()
-        return result
+            db.commit()
+            publish_status(session_id, "track_failed", f"❌ {track_name} ошибка")
+            return {"success": False, "track_name": track_name}
+            
+    except Exception as e:
+        logger.error(f"Track {track_name} error: {e}")
+        publish_status(session_id, "track_failed", f"❌ {track_name} ошибка: {str(e)}")
+        return {"success": False, "track_name": track_name, "error": str(e)}
     finally:
         db.close()
 
-@celery_app.task(name="app.tasks.finalize_analysis")
-def finalize_analysis(results, job_id):
+@celery_app.task(bind=True)
+def finalize_analysis(self, results, job_id: int, session_id: int):
+    """Финализация анализа - НЕ закрываем db в analyze_track!"""
     db = SessionLocal()
     try:
-        job = db.query(Job).filter(Job.id == job_id).first()
-        successful = [r for r in results if r.get("status") == "success"]
+        publish_status(session_id, "consolidation_started", "🔄 Формирую итоговый отчет и SWOT...")
         
-        if len(successful) == 3:
-            job.status = "done"
-            publish_status(job.session_id, "consolidating", "Формирую SWOT...")
-            consolidate_and_swot(job_id)
-            publish_status(job.session_id, "completed", "🎉 Готово!")
+        success_count = sum(1 for r in results if r.get('success'))
+        logger.info(f"Finalize job {job_id}: {success_count}/3 tracks succeeded")
+        
+        if success_count >= 3:
+            report = consolidate_and_swot(job_id)
+            
+            if report:
+                job = db.query(Job).filter(Job.id == job_id).first()
+                job.status = "done"
+                db.commit()
+                
+                logger.info(f"Job {job_id} completed successfully")
+                publish_status(session_id, "analysis_completed", "🎉 Анализ завершен!", {
+                    "job_id": job_id,
+                    "report": report
+                })
+                
+                return {"job_id": job_id, "status": "done"}
+            else:
+                job = db.query(Job).filter(Job.id == job_id).first()
+                job.status = "failed"
+                db.commit()
+                logger.error(f"Job {job_id} consolidation failed")
+                publish_status(session_id, "analysis_failed", "❌ Ошибка при создании отчета")
         else:
-            job.status = "partial" if successful else "failed"
-        
-        db.commit()
+            job = db.query(Job).filter(Job.id == job_id).first()
+            job.status = "partial"
+            db.commit()
+            logger.warning(f"Job {job_id} partially completed: {success_count}/3")
+            publish_status(session_id, "analysis_partial", f"⚠️ Завершено частично: {success_count}/3 треков")
+            
         return {"job_id": job_id}
+        
+    except Exception as e:
+        logger.error(f"Finalize error for job {job_id}: {e}", exc_info=True)
+        publish_status(session_id, "analysis_failed", f"❌ Ошибка финализации: {str(e)}")
+        return {"job_id": job_id, "status": "failed", "error": str(e)}
     finally:
         db.close()
 
-@celery_app.task(name="app.tasks.run_full_analysis")
-def run_full_analysis(job_id: int):
-    db = SessionLocal()
+@celery_app.task(bind=True)
+def run_full_analysis(self, job_id: int, session_id: int, form_data: dict):
     try:
-        job = db.query(Job).filter(Job.id == job_id).first()
-        job.status = "running"
-        db.commit()
+        publish_status(session_id, "analysis_started", "🚀 Запускаю параллельный анализ по 3 направлениям...")
         
-        publish_status(job.session_id, "started", "Запускаю...")
+        track_tasks = [
+            analyze_track.s(job_id, session_id, 'track1_audience', form_data),
+            analyze_track.s(job_id, session_id, 'track2_global', form_data),
+            analyze_track.s(job_id, session_id, 'track3_local', form_data)
+        ]
         
-        tracks = ["track1_audience", "track2_global", "track3_local"]
-        chord(group([analyze_track.s(job_id, t) for t in tracks]))(finalize_analysis.s(job_id))
-        return {"job_id": job_id}
-    finally:
-        db.close()
+        callback = finalize_analysis.s(job_id, session_id)
+        chord(track_tasks)(callback)
+        
+    except Exception as e:
+        logger.error(f"run_full_analysis error: {e}", exc_info=True)
+        publish_status(session_id, "analysis_failed", f"❌ Ошибка запуска: {str(e)}")

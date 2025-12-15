@@ -1,31 +1,15 @@
-import { useState } from 'react'
-import Form from './components/Form'
-import Results from './components/Results'
+import { Routes, Route } from 'react-router-dom'
+import Home from './pages/Home'
+import Evaluate from './pages/Evaluate'
+import Results from './pages/Results'
 
 function App() {
-  const [sessionId, setSessionId] = useState(null)
-  const [jobId, setJobId] = useState(null)
-  const [status, setStatus] = useState('form')
-
   return (
-    <div className="app">
-      <header>
-        <h1>🚀 BizEval</h1>
-        <p>AI-анализ бизнес-идей</p>
-      </header>
-      <main>
-        {status === 'form' && (
-          <Form onSubmit={(sid, jid) => {
-            setSessionId(sid)
-            setJobId(jid)
-            setStatus('results')
-          }} />
-        )}
-        {status === 'results' && (
-          <Results jobId={jobId} onBack={() => setStatus('form')} />
-        )}
-      </main>
-    </div>
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/evaluate" element={<Evaluate />} />
+      <Route path="/results/:jobId" element={<Results />} />
+    </Routes>
   )
 }
 

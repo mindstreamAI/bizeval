@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 
-function Results({ jobId, onBack }) {
+function Results() {
+  const { jobId } = useParams()
+  const navigate = useNavigate()
   const [status, setStatus] = useState('loading')
   const [report, setReport] = useState(null)
 
@@ -40,7 +43,7 @@ function Results({ jobId, onBack }) {
     return (
       <div className="error">
         <h2>❌ Ошибка анализа</h2>
-        <button onClick={onBack}>← Назад</button>
+        <button onClick={() => navigate('/')}>← На главную</button>
       </div>
     )
   }
@@ -49,7 +52,7 @@ function Results({ jobId, onBack }) {
 
   return (
     <div className="results">
-      <button onClick={onBack} className="back">← Новый анализ</button>
+      <button onClick={() => navigate('/')} className="back">← Новый анализ</button>
 
       <section className="summary">
         <h2>📊 Executive Summary</h2>

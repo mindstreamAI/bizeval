@@ -13,7 +13,6 @@ function Sidebar({ onLogout }) {
         <NavLink to="/jobs">📋 Анализы</NavLink>
         <NavLink to="/prompts">✏️ Промпты</NavLink>
         <NavLink to="/logs">📜 Логи LLM</NavLink>
-        <NavLink to="/settings">⚙️ Настройки</NavLink>
       </nav>
       
       <button onClick={onLogout} className="logout-btn">
