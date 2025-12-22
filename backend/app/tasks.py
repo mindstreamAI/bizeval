@@ -24,8 +24,16 @@ def publish_status(session_id: int, status: str, message: str, data: dict = None
 @celery_app.task(bind=True)
 def analyze_track(self, job_id: int, session_id: int, track_name: str, form_data: dict):
     db = SessionLocal()
+    
+    # Русские названия треков
+    track_labels = {
+        'track1_market_analysis': '📊 Анализ рынков и ниш',
+        'track2_growth_strategy': '🔍 Анализ аналогов и антилогов', 
+        'track3_risks_analysis': '💡 Анализ клиентских болей'
+    }
+    
     try:
-        publish_status(session_id, "track_started", f"🔄 Анализирую {track_name}...")
+        publish_status(session_id, "track_started", f"📄 {track_labels.get(track_name, track_name)}...")
         
         # Получаем активный промпт
         prompt_obj = db.query(Prompt).filter(
@@ -46,7 +54,7 @@ def analyze_track(self, job_id: int, session_id: int, track_name: str, form_data
         db.commit()
         db.refresh(track)
         
-        # Вызываем LLM с правильными параметрами
+        # Вызываем LLM
         result = call_llm(
             prompt=prompt_obj.prompt_template,
             form_data=form_data,
@@ -59,27 +67,27 @@ def analyze_track(self, job_id: int, session_id: int, track_name: str, form_data
             track.raw_output = result
             db.commit()
             
-            publish_status(session_id, "track_completed", f"✅ {track_name} завершен", {"track": track_name})
+            publish_status(session_id, "track_completed", f"✅ {track_labels.get(track_name, track_name)} завершен", {"track": track_name})
             return {"success": True, "track_name": track_name}
         else:
             track.status = "failed"
             db.commit()
-            publish_status(session_id, "track_failed", f"❌ {track_name} ошибка")
+            publish_status(session_id, "track_failed", f"❌ {track_labels.get(track_name, track_name)} ошибка")
             return {"success": False, "track_name": track_name}
             
     except Exception as e:
         logger.error(f"Track {track_name} error: {e}")
-        publish_status(session_id, "track_failed", f"❌ {track_name} ошибка: {str(e)}")
+        publish_status(session_id, "track_failed", f"❌ {track_labels.get(track_name, track_name)} ошибка: {str(e)}")
         return {"success": False, "track_name": track_name, "error": str(e)}
     finally:
         db.close()
 
 @celery_app.task(bind=True)
 def finalize_analysis(self, results, job_id: int, session_id: int):
-    """Финализация анализа - НЕ закрываем db в analyze_track!"""
+    """Финализация анализа"""
     db = SessionLocal()
     try:
-        publish_status(session_id, "consolidation_started", "🔄 Формирую итоговый отчет и SWOT...")
+        publish_status(session_id, "consolidation_started", "📄 Формирую итоговое резюме...")
         
         success_count = sum(1 for r in results if r.get('success'))
         logger.info(f"Finalize job {job_id}: {success_count}/3 tracks succeeded")
@@ -127,9 +135,9 @@ def run_full_analysis(self, job_id: int, session_id: int, form_data: dict):
         publish_status(session_id, "analysis_started", "🚀 Запускаю параллельный анализ по 3 направлениям...")
         
         track_tasks = [
-            analyze_track.s(job_id, session_id, 'track1_audience', form_data),
-            analyze_track.s(job_id, session_id, 'track2_global', form_data),
-            analyze_track.s(job_id, session_id, 'track3_local', form_data)
+            analyze_track.s(job_id, session_id, 'track1_market_analysis', form_data),
+            analyze_track.s(job_id, session_id, 'track2_growth_strategy', form_data),
+            analyze_track.s(job_id, session_id, 'track3_risks_analysis', form_data)
         ]
         
         callback = finalize_analysis.s(job_id, session_id)

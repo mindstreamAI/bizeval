@@ -64,18 +64,27 @@ async def get_jobs(skip: int = 0, limit: int = 20, db: Session = Depends(get_db)
         from app.models import Form
         form = db.query(Form).filter(Form.session_id == job.session_id).first()
         
+        # Берём industry_products из новой анкеты, или idea_description из старой
+        idea_text = 'N/A'
+        if form:
+            idea_text = form.payload.get('industry_products', form.payload.get('idea_description', 'N/A'))[:100]
+        
         result.append({
             "id": job.id,
             "created_at": job.created_at.isoformat(),
             "status": job.status,
-            "idea": form.payload.get('idea_description', '')[:100] if form else 'N/A'
+            "idea": idea_text
         })
     
     return result
 
 @router.get("/prompts")
 async def get_prompts(db: Session = Depends(get_db)):
-    prompts = db.query(Prompt).order_by(Prompt.track_name, Prompt.version.desc()).all()
+    # Показываем только новые треки
+    new_tracks = ['track1_market_analysis', 'track2_growth_strategy', 'track3_risks_analysis']
+    prompts = db.query(Prompt).filter(
+        Prompt.track_name.in_(new_tracks)
+    ).order_by(Prompt.track_name, Prompt.version.desc()).all()
     
     grouped = {}
     for p in prompts:

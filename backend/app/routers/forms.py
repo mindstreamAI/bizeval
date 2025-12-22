@@ -8,14 +8,13 @@ from typing import Optional
 router = APIRouter(prefix="/api/form", tags=["forms"])
 
 class FormData(BaseModel):
-    idea_description: str
-    target_audience: str
-    industry: str
+    industry_products: str
+    customers: str
+    business_model: str
     geography: str
-    value_proposition: str
-    monetization_model: str
-    project_stage: str
-    additional_comments: Optional[str] = None
+    constraints: Optional[str] = None
+    strategic_goals: Optional[str] = None
+    additional_info: Optional[str] = None
 
 class FormStructure(BaseModel):
     fields: list
@@ -25,64 +24,52 @@ async def get_form_structure():
     """Возвращает структуру формы анкеты"""
     fields = [
         {
-            "name": "idea_description",
-            "label": "Описание идеи",
+            "name": "industry_products",
+            "label": "Отрасль, продукты и услуги",
             "type": "textarea",
-            "placeholder": "Опишите вашу бизнес-идею подробно...",
+            "placeholder": "Опишите вашу отрасль, ключевые продукты/услуги и чем вы реально помогаете клиентам...",
             "required": True
         },
         {
-            "name": "target_audience",
-            "label": "Целевая аудитория",
+            "name": "customers",
+            "label": "Клиенты и их задачи",
             "type": "textarea",
-            "placeholder": "Кто ваши клиенты?",
+            "placeholder": "Кто ваши клиенты (типы, размеры, сегменты) и какие задачи (jobs-to-be-done) они решают с вашей помощью...",
             "required": True
         },
         {
-            "name": "industry",
-            "label": "Индустрия",
-            "type": "select",
-            "options": ["Tech", "E-commerce", "Healthcare", "Education", "Finance", "Other"],
+            "name": "business_model",
+            "label": "Бизнес-модель и монетизация",
+            "type": "textarea",
+            "placeholder": "Как вы зарабатываете деньги: источники выручки, ключевые форматы, модель ценообразования...",
             "required": True
         },
         {
             "name": "geography",
             "label": "География",
-            "type": "select",
-            "options": ["Russia", "USA", "Europe", "Asia", "Global"],
-            "required": True
-        },
-        {
-            "name": "value_proposition",
-            "label": "Ценностное предложение",
             "type": "textarea",
-            "placeholder": "Что уникального в вашем решении?",
+            "placeholder": "В каких странах/регионах вы работаете и какие географии считаете потенциальными...",
             "required": True
         },
         {
-            "name": "monetization_model",
-            "label": "Модель монетизации",
-            "type": "text",
-            "placeholder": "Как планируете зарабатывать?",
-            "required": True
-        },
-        {
-            "name": "project_stage",
-            "label": "Стадия проекта",
-            "type": "select",
-            "options": [
-                {"value": "idea", "label": "Идея"},
-                {"value": "prototype", "label": "Прототип"},
-                {"value": "first_clients", "label": "Первые клиенты"},
-                {"value": "scale", "label": "Масштабирование"}
-            ],
-            "required": True
-        },
-        {
-            "name": "additional_comments",
-            "label": "Дополнительные комментарии",
+            "name": "constraints",
+            "label": "Ограничения",
             "type": "textarea",
-            "placeholder": "Что еще важно учесть?",
+            "placeholder": "Ваши ограничения: ресурсы, команда, технологии, регуляция, время основателя и т.п.",
+            "required": False
+        },
+        {
+            "name": "strategic_goals",
+            "label": "Стратегические цели и амбиции",
+            "type": "textarea",
+            "placeholder": "Ваши стратегические цели, амбиции, видение развития...",
+            "required": False
+        },
+        {
+            "name": "additional_info",
+            "label": "Дополнительная информация",
+            "type": "textarea",
+            "placeholder": "Любые дополнительные детали, которые считаете важными для выбора новых ниш, рынков и направлений роста...",
             "required": False
         }
     ]

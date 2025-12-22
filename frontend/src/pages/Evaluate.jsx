@@ -6,7 +6,7 @@ function Evaluate() {
   const [sessionId, setSessionId] = useState(null)
   const [ws, setWs] = useState(null)
   const [messages, setMessages] = useState([
-    { role: 'ai', text: 'Привет! 👋 Я AI-аналитик бизнес-идей. Заполни форму ниже — я проанализирую твою идею, оценю перспективы и дам конкретные рекомендации для развития.' }
+    { role: 'ai', text: 'Привет! 👋 Я стратегический консультант для анализа бизнес-возможностей. Заполни форму ниже — я проведу глубокий анализ направлений роста, изучу аналоги и антилоги, проанализирую клиентские боли и дам итоговые рекомендации.' }
   ])
   const [formVisible, setFormVisible] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
@@ -16,14 +16,13 @@ function Evaluate() {
   const shouldScrollRef = useRef(false)
   
   const [formData, setFormData] = useState({
-    idea_description: '',
-    target_audience: '',
-    industry: 'Tech',
-    geography: 'Russia',
-    value_proposition: '',
-    monetization_model: '',
-    project_stage: 'idea',
-    additional_comments: ''
+    industry_products: '',
+    customers: '',
+    business_model: '',
+    geography: '',
+    constraints: '',
+    strategic_goals: '',
+    additional_info: ''
   })
 
   const scrollToBottom = () => {
@@ -96,8 +95,8 @@ function Evaluate() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    if (!formData.idea_description || !formData.target_audience || !formData.value_proposition || !formData.monetization_model) {
-      alert('Заполните все обязательные поля')
+    if (!formData.industry_products || !formData.customers || !formData.business_model || !formData.geography) {
+      alert('Заполните все обязательные поля (первые 4)')
       return
     }
     
@@ -105,12 +104,14 @@ function Evaluate() {
     setFormVisible(false)
     setAnalyzing(true)
     
-    const summary = `📋 Идея: ${formData.idea_description.substring(0, 100)}...
-👥 Аудитория: ${formData.target_audience.substring(0, 80)}...
-🏭 Индустрия: ${formData.industry}
+    const summary = `📋 Контекст бизнеса:
+
+🏭 Отрасль и продукты: ${formData.industry_products.substring(0, 100)}...
+👥 Клиенты: ${formData.customers.substring(0, 80)}...
+💰 Бизнес-модель: ${formData.business_model.substring(0, 80)}...
 🌍 География: ${formData.geography}
-💰 Монетизация: ${formData.monetization_model}
-📊 Стадия: ${formData.project_stage}`
+⚠️ Ограничения: ${formData.constraints || 'не указаны'}
+🎯 Цели: ${formData.strategic_goals || 'не указаны'}`
     
     addMessage('user', summary)
     
@@ -140,14 +141,14 @@ function Evaluate() {
     <div className="chat-container">
       <div className="chat-header">
         <button onClick={() => navigate('/')} className="back-link">← Назад</button>
-        <h3>Анализ бизнес-идеи</h3>
+        <h3>Стратегический анализ</h3>
       </div>
 
       <div className="chat-messages">
         {messages.map((msg, i) => (
           <div key={i} className={`chat-message ${msg.role}`}>
             <div className="message-avatar">{msg.role === 'ai' ? '🤖' : '👤'}</div>
-            <div className="message-text">{msg.text}</div>
+            <div className="message-text" style={{whiteSpace: 'pre-wrap'}}>{msg.text}</div>
           </div>
         ))}
 
@@ -157,89 +158,75 @@ function Evaluate() {
             <div className="message-form">
               <form onSubmit={handleSubmit}>
                 <div className="form-group">
-                  <label>Описание идеи *</label>
+                  <label>Отрасль, продукты и услуги *</label>
                   <textarea
-                    value={formData.idea_description}
-                    onChange={e => setFormData({...formData, idea_description: e.target.value})}
-                    placeholder="Опишите вашу бизнес-идею подробно..."
+                    value={formData.industry_products}
+                    onChange={e => setFormData({...formData, industry_products: e.target.value})}
+                    placeholder="Опишите вашу отрасль, ключевые продукты/услуги и чем вы реально помогаете клиентам..."
                     rows="3"
                     required
                   />
                 </div>
 
                 <div className="form-group">
-                  <label>Целевая аудитория *</label>
+                  <label>Клиенты и их задачи *</label>
                   <textarea
-                    value={formData.target_audience}
-                    onChange={e => setFormData({...formData, target_audience: e.target.value})}
-                    placeholder="Кто ваши клиенты?..."
-                    rows="2"
+                    value={formData.customers}
+                    onChange={e => setFormData({...formData, customers: e.target.value})}
+                    placeholder="Кто ваши клиенты (типы, размеры, сегменты) и какие задачи (jobs-to-be-done) они решают с вашей помощью..."
+                    rows="3"
                     required
                   />
                 </div>
 
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Индустрия</label>
-                    <select value={formData.industry} onChange={e => setFormData({...formData, industry: e.target.value})}>
-                      <option>Tech</option>
-                      <option>E-commerce</option>
-                      <option>Healthcare</option>
-                      <option>Education</option>
-                      <option>Finance</option>
-                      <option>Other</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label>География</label>
-                    <select value={formData.geography} onChange={e => setFormData({...formData, geography: e.target.value})}>
-                      <option>Russia</option>
-                      <option>USA</option>
-                      <option>Europe</option>
-                      <option>Asia</option>
-                      <option>Global</option>
-                    </select>
-                  </div>
+                <div className="form-group">
+                  <label>Бизнес-модель и монетизация *</label>
+                  <textarea
+                    value={formData.business_model}
+                    onChange={e => setFormData({...formData, business_model: e.target.value})}
+                    placeholder="Как вы зарабатываете деньги: источники выручки, ключевые форматы, модель ценообразования..."
+                    rows="3"
+                    required
+                  />
                 </div>
 
                 <div className="form-group">
-                  <label>Ценностное предложение *</label>
+                  <label>География *</label>
                   <textarea
-                    value={formData.value_proposition}
-                    onChange={e => setFormData({...formData, value_proposition: e.target.value})}
-                    placeholder="Что уникального в вашем решении?..."
+                    value={formData.geography}
+                    onChange={e => setFormData({...formData, geography: e.target.value})}
+                    placeholder="В каких странах/регионах вы работаете и какие географии считаете потенциальными..."
                     rows="2"
                     required
                   />
                 </div>
 
                 <div className="form-group">
-                  <label>Модель монетизации *</label>
-                  <input
-                    value={formData.monetization_model}
-                    onChange={e => setFormData({...formData, monetization_model: e.target.value})}
-                    placeholder="Как планируете зарабатывать?..."
-                    required
+                  <label>Ограничения</label>
+                  <textarea
+                    value={formData.constraints}
+                    onChange={e => setFormData({...formData, constraints: e.target.value})}
+                    placeholder="Ваши ограничения: ресурсы, команда, технологии, регуляция, время основателя и т.п. (необязательно)"
+                    rows="2"
                   />
                 </div>
 
                 <div className="form-group">
-                  <label>Стадия проекта</label>
-                  <select value={formData.project_stage} onChange={e => setFormData({...formData, project_stage: e.target.value})}>
-                    <option value="idea">Идея</option>
-                    <option value="prototype">Прототип</option>
-                    <option value="first_clients">Первые клиенты</option>
-                    <option value="scale">Масштабирование</option>
-                  </select>
+                  <label>Стратегические цели и амбиции</label>
+                  <textarea
+                    value={formData.strategic_goals}
+                    onChange={e => setFormData({...formData, strategic_goals: e.target.value})}
+                    placeholder="Ваши стратегические цели, амбиции, видение развития... (необязательно)"
+                    rows="2"
+                  />
                 </div>
 
                 <div className="form-group">
-                  <label>Дополнительные комментарии</label>
+                  <label>Дополнительная информация</label>
                   <textarea
-                    value={formData.additional_comments}
-                    onChange={e => setFormData({...formData, additional_comments: e.target.value})}
-                    placeholder="Что еще важно учесть?... (необязательно)"
+                    value={formData.additional_info}
+                    onChange={e => setFormData({...formData, additional_info: e.target.value})}
+                    placeholder="Любые дополнительные детали, которые считаете важными для выбора новых ниш, рынков и направлений роста... (необязательно)"
                     rows="2"
                   />
                 </div>
@@ -258,107 +245,30 @@ function Evaluate() {
             <div className="message-report">
               
               <div className="report-section">
-                <h3>📊 Executive Summary</h3>
-                <p>{report.consolidation.executive_summary}</p>
-              </div>
-
-              <div className="report-section">
-                <h3>👥 Целевая Аудитория</h3>
-                <div className="info-grid">
-                  <div className="info-item">
-                    <span className="info-label">Приоритетный сегмент:</span>
-                    <span className="info-value">{report.consolidation.audience_analysis?.priority_segment}</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">Product-Market Fit:</span>
-                    <span className="info-value">{report.consolidation.audience_analysis?.market_fit_score}/10</span>
-                  </div>
-                </div>
-                <p><strong>Ключевые сегменты:</strong> {report.consolidation.audience_analysis?.key_segments.join(', ')}</p>
-              </div>
-
-              <div className="report-section">
-                <h3>🌍 Конкурентная Среда</h3>
-                <div className="info-grid">
-                  <div className="info-item">
-                    <span className="info-label">Уровень конкуренции:</span>
-                    <span className="info-value">{report.consolidation.competitive_landscape?.competition_intensity}/10</span>
-                  </div>
-                </div>
-                <p><strong>Главные конкуренты:</strong> {report.consolidation.competitive_landscape?.main_competitors.join(', ')}</p>
-              </div>
-
-              <div className="report-section">
-                <h3>📍 Локальный Рынок</h3>
-                <div className="info-grid">
-                  <div className="info-item">
-                    <span className="info-label">Привлекательность:</span>
-                    <span className="info-value">{report.consolidation.local_market?.market_attractiveness}/10</span>
-                  </div>
+                <h2>📊 АНАЛИЗ НАПРАВЛЕНИЙ РОСТА</h2>
+                <div style={{whiteSpace: 'pre-wrap', lineHeight: '1.7'}}>
+                  {report.tracks?.market_analysis || report.consolidation?.market_analysis || 'Данные отсутствуют'}
                 </div>
               </div>
 
               <div className="report-section">
-                <h3>🎯 SWOT Анализ</h3>
-                <div className="swot-grid">
-                  <div className="swot-item green">
-                    <h4>✅ Strengths</h4>
-                    <ul>{report.consolidation.swot.strengths.map((s, i) => <li key={i}>{s}</li>)}</ul>
-                  </div>
-                  <div className="swot-item red">
-                    <h4>⚠️ Weaknesses</h4>
-                    <ul>{report.consolidation.swot.weaknesses.map((w, i) => <li key={i}>{w}</li>)}</ul>
-                  </div>
-                  <div className="swot-item blue">
-                    <h4>🚀 Opportunities</h4>
-                    <ul>{report.consolidation.swot.opportunities.map((o, i) => <li key={i}>{o}</li>)}</ul>
-                  </div>
-                  <div className="swot-item orange">
-                    <h4>⚡ Threats</h4>
-                    <ul>{report.consolidation.swot.threats.map((t, i) => <li key={i}>{t}</li>)}</ul>
-                  </div>
+                <h2>🔍 АНАЛИЗ АНАЛОГОВ И АНТИЛОГОВ</h2>
+                <div style={{whiteSpace: 'pre-wrap', lineHeight: '1.7'}}>
+                  {report.tracks?.growth_opportunities || report.consolidation?.growth_opportunities || 'Данные отсутствуют'}
                 </div>
               </div>
 
               <div className="report-section">
-                <h3>💡 Стратегические Рекомендации</h3>
-                {['high', 'medium', 'low'].map(priority => {
-                  const recs = report.consolidation.strategic_recommendations?.filter(r => r.priority === priority)
-                  if (!recs || recs.length === 0) return null
-                  const emoji = {high: '🔴', medium: '🟡', low: '🟢'}[priority]
-                  const label = {high: 'Высокий', medium: 'Средний', low: 'Низкий'}[priority]
-                  return (
-                    <div key={priority} className="recs-group">
-                      <h4>{emoji} {label} приоритет</h4>
-                      {recs.map((r, i) => (
-                        <div key={i} className="rec-item">
-                          <div className="rec-header">
-                            <span className="rec-category">{{'product': '🛠️', 'marketing': '📢', 'business_model': '💰', 'risks': '⚠️'}[r.category]}</span>
-                            <strong>{r.recommendation}</strong>
-                          </div>
-                          <div className="rec-rationale">{r.rationale}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                })}
+                <h2>💡 АНАЛИЗ КЛИЕНТСКИХ БОЛЕЙ</h2>
+                <div style={{whiteSpace: 'pre-wrap', lineHeight: '1.7'}}>
+                  {report.tracks?.risks_constraints || report.consolidation?.risks_constraints || 'Данные отсутствуют'}
+                </div>
               </div>
 
               <div className="report-section score-section">
-                <h3>⭐ Итоговая Оценка</h3>
-                <div className="score-grid">
-                  <div className="score-item">
-                    <div className="score-value">{report.consolidation.overall_score}</div>
-                    <div className="score-label">Общий балл</div>
-                  </div>
-                  <div className="score-item">
-                    <div className="score-value">{{'low': '🟢', 'medium': '🟡', 'high': '🔴'}[report.consolidation.risk_level]}</div>
-                    <div className="score-label">Риск: {report.consolidation.risk_level}</div>
-                  </div>
-                  <div className="score-item">
-                    <div className="score-value">📈</div>
-                    <div className="score-label">{report.consolidation.investment_readiness?.replace('_', ' ')}</div>
-                  </div>
+                <h2>📋 ИТОГОВОЕ РЕЗЮМЕ</h2>
+                <div style={{whiteSpace: 'pre-wrap', lineHeight: '1.7', color: 'white'}}>
+                  {report.consolidation?.executive_summary || 'Данные отсутствуют'}
                 </div>
               </div>
 
