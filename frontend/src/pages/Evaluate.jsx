@@ -41,7 +41,8 @@ function Evaluate() {
       .then(data => {
         setSessionId(data.session_id)
         
-        const websocket = new WebSocket(`ws://155.212.222.110:8000/ws/${data.session_id}`)
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        const websocket = new WebSocket(`${wsProtocol}//${window.location.hostname}:8000/ws/${data.session_id}`)
         
         websocket.onopen = () => {
           console.log('WebSocket connected')
@@ -245,7 +246,7 @@ function Evaluate() {
             <div className="message-report">
               
               <div className="report-section">
-                <h2>📊 АНАЛИЗ НАПРАВЛЕНИЙ РОСТА</h2>
+                <h2>📊 АНАЛИЗ РЫНКОВ И НИШ</h2>
                 <div style={{whiteSpace: 'pre-wrap', lineHeight: '1.7'}}>
                   {report.tracks?.market_analysis || report.consolidation?.market_analysis || 'Данные отсутствуют'}
                 </div>

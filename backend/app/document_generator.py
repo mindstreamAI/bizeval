@@ -64,40 +64,44 @@ def generate_pdf(report_data: dict, output_path: str, form_input: dict = None):
         story.append(Spacer(1, 20))
     
     # Трек 1
-    story.append(Paragraph('АНАЛИЗ НАПРАВЛЕНИЙ РОСТА', h1_style))
+    story.append(Paragraph('АНАЛИЗ РЫНКОВ И НИШ', h1_style))
     story.append(Spacer(1, 10))
     market_text = tracks.get('market_analysis', 'Нет данных')
-    for line in market_text.split('\n'):
-        if line.strip():
-            story.append(Paragraph(line, text_style))
-    story.append(Spacer(1, 20))
+    for para in market_text.split('\n\n'):
+        if para.strip():
+            story.append(Paragraph(para.strip().replace('\n', ' '), text_style))
+            story.append(Spacer(1, 8))
+    story.append(Spacer(1, 12))
     
     # Трек 2
     story.append(Paragraph('АНАЛИЗ АНАЛОГОВ И АНТИЛОГОВ', h1_style))
     story.append(Spacer(1, 10))
     growth_text = tracks.get('growth_opportunities', 'Нет данных')
-    for line in growth_text.split('\n'):
-        if line.strip():
-            story.append(Paragraph(line, text_style))
-    story.append(Spacer(1, 20))
+    for para in growth_text.split('\n\n'):
+        if para.strip():
+            story.append(Paragraph(para.strip().replace('\n', ' '), text_style))
+            story.append(Spacer(1, 8))
+    story.append(Spacer(1, 12))
     
     # Трек 3
     story.append(Paragraph('АНАЛИЗ КЛИЕНТСКИХ БОЛЕЙ', h1_style))
     story.append(Spacer(1, 10))
     risks_text = tracks.get('risks_constraints', 'Нет данных')
-    for line in risks_text.split('\n'):
-        if line.strip():
-            story.append(Paragraph(line, text_style))
-    story.append(Spacer(1, 20))
+    for para in risks_text.split('\n\n'):
+        if para.strip():
+            story.append(Paragraph(para.strip().replace('\n', ' '), text_style))
+            story.append(Spacer(1, 8))
+    story.append(Spacer(1, 12))
     
     # Итоговое резюме
     story.append(PageBreak())
     story.append(Paragraph('ИТОГОВОЕ РЕЗЮМЕ', h1_style))
     story.append(Spacer(1, 10))
     exec_summary = cons.get('executive_summary', 'Нет данных')
-    for line in exec_summary.split('\n'):
-        if line.strip():
-            story.append(Paragraph(line, text_style))
+    for para in exec_summary.split('\n\n'):
+        if para.strip():
+            story.append(Paragraph(para.strip().replace('\n', ' '), text_style))
+            story.append(Spacer(1, 8))
     
     doc.build(story)
     return output_path
@@ -143,7 +147,7 @@ def generate_docx(report_data: dict, output_path: str, form_input: dict = None):
         doc.add_paragraph('')
     
     # Трек 1
-    doc.add_heading('АНАЛИЗ НАПРАВЛЕНИЙ РОСТА', level=1)
+    doc.add_heading('АНАЛИЗ РЫНКОВ И НИШ', level=1)
     market_text = tracks.get('market_analysis', 'Нет данных')
     for para in market_text.split('\n\n'):
         if para.strip():
